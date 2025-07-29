@@ -1,6 +1,6 @@
-# Funktion für die Farbauswahl
+# Farbkonfiguration
 function Wähle-Farbe {
-    $farben = @(
+    return @(
         @{ Name = "Rot"; Farbe = "Red"; Hex = "#FF0000" },
         @{ Name = "Grün"; Farbe = "Green"; Hex = "#00FF00" },
         @{ Name = "Blau"; Farbe = "Blue"; Hex = "#0000FF" },
@@ -8,22 +8,28 @@ function Wähle-Farbe {
         @{ Name = "Magenta"; Farbe = "Magenta"; Hex = "#FF00FF" },
         @{ Name = "Cyan"; Farbe = "Cyan"; Hex = "#00FFFF" }
     )
-    return $farben
 }
 
-# Funktion für die Anzeige einer zufälligen Farbe
+# Zufällige Anzeige und Entscheidung: richtig/falsch
 function Zeige-Zufallsfarbe {
-    $farben = Wähle-Farbe
+    param (
+        $farben
+    )
     $richtig = Get-Random -Minimum 0 -Maximum 2
     $wort = Get-Random $farben
     $andere = Get-Random ($farben | Where-Object { $_.Name -ne $wort.Name })
-
     $anzeigeFarbe = if ($richtig -eq 1) { $wort.Farbe } else { $andere.Farbe }
+
     Write-Host "`n$($wort.Name)" -ForegroundColor $anzeigeFarbe
-    return $wort, $anzeigeFarbe, $richtig
+
+    return @{
+        Wort = $wort
+        Farbe = $anzeigeFarbe
+        Richtig = $richtig
+    }
 }
 
-# Funktion für die Zeiterfassung der Eingabe
+# Eingabe mit Zeitmessung
 function Warte-auf-Eingabe {
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $eingabe = $null
@@ -37,15 +43,19 @@ function Warte-auf-Eingabe {
     }
 
     $stopwatch.Stop()
-    return $eingabe, $stopwatch.Elapsed.TotalSeconds
+    return @{
+        Eingabe = $eingabe
+        Dauer = [math]::Round($stopwatch.Elapsed.TotalSeconds, 2)
+    }
 }
 
-# Funktion zur Auswertung der Eingabe
+# Auswertung der Eingabe
 function Auswertung {
     param (
         [string]$eingabe,
         [int]$richtig
     )
+
     if (-not $eingabe) {
         Write-Host "Zu spät! Etschi Bätsch!"
     }
@@ -57,35 +67,28 @@ function Auswertung {
     }
 }
 
-# Funktion für das Spiel
+# Spiel-Funktion (10 Runden) 
 function Starte-Spiel {
-    # Spielschleife: 10 Runden
+    $farben = Wähle-Farbe
+
     for ($i = 1; $i -le 10; $i++) {
-        # Zufällige Farbe und Anzeige
-        $wort, $anzeigeFarbe, $richtig = Zeige-Zufallsfarbe
+        $runde = Zeige-Zufallsfarbe -farben $farben
+        $eingabeInfo = Warte-auf-Eingabe
 
-        # Eingabe des Spielers und Zeitmessung
-        $eingabe, $gebrauchteZeit = Warte-auf-Eingabe
+        $anzeigeHex = ($farben | Where-Object { $_.Farbe -eq $runde.Farbe }).Hex
 
-        # Berechnung des HEX-Codes der angezeigten Farbe
-        $farben = Wähle-Farbe
-        $anzeigeHex = ($farben | Where-Object { $_.Farbe -eq $anzeigeFarbe }).Hex
+        Auswertung -eingabe $eingabeInfo.Eingabe -richtig $runde.Richtig
 
-        # Auswertung der Eingabe
-        Auswertung -eingabe $eingabe -richtig $richtig
-
-        # Zusatzinformationen für die Runde
         Write-Host "Angezeigte Farbe (HEX): $anzeigeHex"
-        Write-Host "Du hast gebraucht: $gebrauchteZeit Sekunden"
+        Write-Host "Du hast gebraucht: $($eingabeInfo.Dauer) Sekunden"
 
-        # Kurze Pause vor der nächsten Runde
         Start-Sleep -Seconds 2
     }
 }
 
-# Funktion für das Startmenü
+# Startmenü und Ablauf (nicht ausgelagert)
 function Startmenü {
-    Clear-Host  # Terminal wird geleert
+    Clear-Host
     Write-Host "================" -ForegroundColor Red
     Write-Host "Errate die Farbe!" -ForegroundColor Blue
     Write-Host "================" -ForegroundColor Red
@@ -95,17 +98,15 @@ function Startmenü {
     Write-Host "3. Beende das Spiel" -ForegroundColor Magenta
 }
 
-# Menüschleife
 do {
-    Startmenü 
-    $auswahl = Read-Host "Wähle eine Option aus (1-3)"  
+    Startmenü
+    $auswahl = Read-Host "Wähle eine Option aus (1-3)"
 
     switch ($auswahl) {
         "1" {
-            # Spiel starten
             Write-Host "Zeit das Spiel zu starten!"
             Starte-Spiel
-            Pause  # Auf Tastendruck warten
+            Pause
         }
         "2" {
             Write-Host "`nAnleitung:" -ForegroundColor Red
@@ -126,4 +127,4 @@ do {
             Pause
         }
     }
-} while ($auswahl -ne "3")  # Schleife endet erst bei Eingabe "3"
+} while ($auswahl -ne "3")
